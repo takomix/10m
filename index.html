@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>10m True Scroll</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:ital,wght@1,700&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Zen Kaku Gothic New', sans-serif;
+            background-color: #000000; 
+            margin: 0;
+            padding: 0;
+            overscroll-behavior-y: none;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden; 
+        }
+
+        .font-oswald {
+            font-family: 'Oswald', sans-serif;
+        }
+
+        .scrollable-screen {
+            overflow-y: auto;
+            touch-action: pan-y;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #scroll-content {
+            will-change: transform;
+        }
+        
+        .hide {
+            display: none !important;
+        }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ffffff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex justify-center items-center">
+
+    <div id="app-container" class="relative w-full h-[100dvh] sm:h-screen sm:max-w-md bg-white overflow-hidden shadow-2xl text-black">
+
+        <!-- 横向き警告 -->
+        <div id="landscape-warning" class="absolute inset-0 bg-white z-[100] flex-col items-center justify-center hide portrait:hide sm:!hidden border-8 border-black">
+            <p class="text-3xl font-black mb-4">縦向き専用</p>
+            <p class="text-lg font-bold">端末を縦にしてください。</p>
+        </div>
+
+        <!-- 巨大な背景文字 -->
+        <div id="bg-10m" class="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0 select-none hide">
+            <!-- -translate-x-10 から -translate-x-4 に変更し、さらにすこーしだけ右へ -->
+            <h1 class="text-[220px] sm:text-[260px] leading-none font-oswald italic font-black text-black tracking-tight whitespace-nowrap transform -rotate-[8deg] -translate-x-4 -translate-y-10">10m</h1>
+        </div>
+
+        <!-- ==========================================
+             ここから下のUIは mix-blend-difference を付与し、
+             色指定を「白/黒 逆転」させて実装します。
+             ========================================== -->
+
+        <!-- HUD -->
+        <div id="hud" class="absolute top-0 left-0 w-full z-40 p-4 flex justify-between items-end opacity-0 transition-opacity duration-300 pointer-events-none box-border mix-blend-difference text-white">
+            <div>
+                <div class="text-xs font-bold tracking-widest text-white border-b-2 border-white inline-block mb-1">TIME</div>
+                <div id="time-display" class="text-4xl font-black tabular-nums">0.000<span class="text-xl font-bold">s</span></div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs font-bold tracking-widest text-white border-b-2 border-white inline-block mb-1">DISTANCE</div>
+                <div class="text-4xl font-black tabular-nums"><span id="dist-display">0.00</span><span class="text-xl font-bold">m</span></div>
+            </div>
+        </div>
+
+        <!-- スタート画面 -->
+        <div id="start-screen" class="absolute inset-0 z-50 border-8 border-white box-border scrollable-screen mix-blend-difference text-white hide">
+            <div class="min-h-full flex flex-col items-center justify-center py-12 px-4">
+                
+                <div class="text-sm font-bold mb-10 text-center px-4 leading-relaxed border-t-2 border-b-2 border-white py-4 w-full max-w-xs bg-transparent mt-[40vh]">
+                    正確な10mの物理距離を計測。<br>
+                    最高速度リミッター搭載。<br>
+                    スワイプの「質」がタイムを分ける。
+                </div>
+
+                <button id="start-btn" class="bg-white text-black text-3xl font-black py-4 w-full max-w-xs active:scale-95 transition-transform mb-4 border-4 border-white">
+                    スタート
+                </button>
+                <button id="open-calib-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors mb-4 flex items-center justify-center">
+                    ⚙️ 画面サイズ調整
+                </button>
+                <button id="view-ranking-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors">
+                    ランキング
+                </button>
+            </div>
+        </div>
+
+        <!-- キャリブレーション画面 -->
+        <div id="calibration-modal" class="absolute inset-0 z-[80] border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
+            <div class="min-h-full flex flex-col items-center justify-start py-12 px-0 w-full">
+                
+                <div class="px-4 w-full flex flex-col items-center">
+                    <h2 class="text-3xl font-black mb-2 tracking-widest text-center border-b-4 border-white pb-2 inline-block">画面サイズ調整</h2>
+                    <p class="text-xs font-bold text-white mb-8 text-center mt-2">より正確な10mを測るための画面調整</p>
+                </div>
+
+                <!-- 方法1：カードで直接調整 -->
+                <div class="border-y-4 border-white py-6 mb-8 w-full bg-transparent box-border">
+                    <div class="max-w-sm mx-auto px-4 w-full">
+                        <div class="text-sm font-bold mb-2 bg-white text-black inline-block px-2 py-1">METHOD 1: カード類で合わせる</div>
+                        <p class="text-xs text-white mb-4 leading-relaxed mt-2 font-bold">
+                            クレジットカードなどの<span class="border-b-2 border-white">短辺(54mm)</span>を画面の左端に当て、右の「↔」を直接ドラッグして枠を合わせてください。
+                        </p>
+                    </div>
+                    
+                    <div class="w-full relative h-[60px] mb-2 border-y-2 border-dashed border-white/30" id="card-track">
+                        <!-- min-w-[100px] を追加して文字とハンドルが重ならないように保護 -->
+                        <div id="card-box" class="absolute left-0 top-0 h-full border-y-4 border-r-4 border-white bg-transparent flex items-center justify-between transition-none z-10 box-border min-w-[100px]">
+                            <span class="font-bold text-xs whitespace-nowrap pl-2 leading-tight text-white">カード<br>(54mm)</span>
+                            <!-- ドラッグ用ハンドル -->
+                            <div id="card-handle" class="w-12 h-full bg-white flex items-center justify-center cursor-ew-resize shrink-0" style="touch-action: none;">
+                                <span class="text-black font-bold text-lg">↔</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 方法2：画面幅で調整 -->
+                <div class="border-4 border-white p-4 mb-6 w-full max-w-sm mx-auto bg-transparent box-border sm:mx-4">
+                    <div class="text-sm font-bold mb-2 bg-white text-black inline-block px-2 py-1">METHOD 2: 画面の縦幅を入力</div>
+                    <p class="text-xs text-white mb-4 leading-relaxed mt-2 font-bold">スマホ画面の縦表示部分の長さを測って入力。</p>
+                    <div class="flex flex-row gap-2 w-full items-stretch">
+                        <input type="number" id="screen-height-input" placeholder="例: 146" step="0.1" class="flex-1 w-0 min-w-[0px] border-2 border-white p-2 font-bold outline-none text-center bg-transparent text-white placeholder-gray-400 focus:bg-white focus:text-black transition-colors box-border">
+                        <span class="flex items-center font-bold shrink-0 text-white">mm</span>
+                        <button id="apply-height-btn" class="bg-white text-black px-4 font-bold text-sm active:scale-95 shrink-0 border-2 border-white box-border">適用</button>
+                    </div>
+                </div>
+
+                <!-- 方法3：px/mm 直接入力 -->
+                <div class="border-4 border-white p-4 mb-8 w-full max-w-sm mx-auto bg-transparent box-border sm:mx-4">
+                    <div class="text-sm font-bold mb-2 bg-white text-black inline-block px-2 py-1">METHOD 3: ピクセル数を直接入力</div>
+                    <p class="text-xs text-white mb-4 leading-relaxed mt-2 font-bold">1mmあたりのピクセル数が分かる場合はこちら。</p>
+                    <div class="flex flex-row gap-2 w-full items-stretch">
+                        <input type="number" id="pxmm-input" placeholder="例: 3.78" step="0.01" class="flex-1 w-0 min-w-[0px] border-2 border-white p-2 font-bold outline-none text-center bg-transparent text-white placeholder-gray-400 focus:bg-white focus:text-black transition-colors box-border">
+                        <span class="flex items-center font-bold shrink-0 text-white text-xs">px/mm</span>
+                        <button id="apply-pxmm-btn" class="bg-white text-black px-4 font-bold text-sm active:scale-95 shrink-0 border-2 border-white box-border">適用</button>
+                    </div>
+                </div>
+
+                <!-- 現在の設定値 -->
+                <div class="text-center mb-8 border-t-2 border-b-2 border-white py-4 w-full max-w-sm mx-auto px-4">
+                    <div class="text-xs font-bold text-white mb-1">現在の設定 (1mmあたりのピクセル数)</div>
+                    <div id="current-px-mm" class="text-2xl font-black tabular-nums">0.000 px/mm</div>
+                </div>
+
+                <div class="flex flex-col gap-3 w-full max-w-sm mx-auto box-border px-4">
+                    <button id="save-calib-btn" class="bg-white text-black text-xl font-bold py-4 active:scale-95 transition-transform w-full border-4 border-white">
+                        保存して閉じる
+                    </button>
+                    <button id="reset-calib-btn" class="bg-transparent text-white text-sm font-bold py-3 active:bg-white active:text-black transition-colors w-full border-4 border-white">
+                        デフォルトに戻す (標準96dpi)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- カウントダウン画面 (イタリックの傾きを考慮し、-translate-x-8で少し左へずらす) -->
+        <div id="ready-screen" class="absolute inset-0 z-50 flex items-center justify-center hide box-border mix-blend-difference pointer-events-none">
+            <div id="countdown" class="text-[250px] font-oswald italic font-black text-white tabular-nums tracking-tighter leading-none flex items-center justify-center w-full h-full text-center transform -translate-x-8">3</div>
+        </div>
+
+        <!-- リザルト画面 -->
+        <div id="result-screen" class="absolute inset-0 z-50 border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
+            <div class="min-h-full flex flex-col items-center justify-center py-12 px-4">
+                <h2 class="text-7xl font-oswald font-black italic mb-8 tracking-widest text-white border-b-8 border-white uppercase">RESULT</h2>
+                
+                <div class="border-4 border-white p-6 mb-8 w-full max-w-sm text-center bg-transparent box-border relative">
+                    <div class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white text-black px-4 py-1 text-sm font-bold tracking-widest">記録</div>
+                    <div id="result-time" class="text-[5rem] leading-none font-black tabular-nums mt-6 mb-6">0.000s</div>
+                    <div class="text-xs font-bold tracking-widest text-white/70 mb-1">評価</div>
+                    <div id="result-eval" class="text-3xl font-black text-white italic tracking-wider"></div>
+                </div>
+
+                <div id="submit-section" class="mb-8 w-full max-w-sm flex flex-col items-center box-border">
+                    <input type="text" id="player-name" placeholder="名前を入力" maxlength="10" class="border-4 border-white p-3 text-2xl font-black text-center w-full mb-3 uppercase outline-none bg-transparent text-white placeholder-gray-400 focus:bg-white focus:text-black transition-colors box-border" />
+                    <button id="submit-btn" class="bg-white text-black text-xl font-bold py-4 px-8 w-full active:scale-95 transition-transform box-border border-4 border-white">
+                        記録を送信
+                    </button>
+                </div>
+
+                <button id="retry-btn" class="bg-transparent text-white border-4 border-white text-xl font-bold py-4 w-full max-w-sm active:bg-white active:text-black transition-colors mb-6 box-border">
+                    もう一度プレイ
+                </button>
+                <button id="result-view-ranking-btn" class="text-sm font-bold border-b-2 border-white text-white pb-1 active:bg-white active:text-black">
+                    ランキングを見る
+                </button>
+            </div>
+        </div>
+
+        <!-- リーダーボードモーダル -->
+        <div id="leaderboard-modal" class="absolute inset-0 z-[70] border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
+            <div class="min-h-full flex flex-col items-center justify-start py-12 px-4">
+                <h2 class="text-7xl font-oswald font-black italic mb-8 tracking-widest text-white border-b-8 border-white uppercase">RANKING</h2>
+                <p class="text-sm font-bold text-white mb-6 uppercase border-b-2 border-white pb-1">トップ10 スクロール記録</p>
+                
+                <div id="ranking-list" class="w-full max-w-sm flex flex-col gap-0 mb-8 flex-1 border-4 border-white box-border bg-transparent">
+                    <div class="text-center font-bold text-white py-10">読み込み中...</div>
+                </div>
+                
+                <button id="close-ranking-btn" class="bg-white text-black text-xl font-bold py-4 w-full max-w-sm active:scale-95 transition-transform shrink-0 box-border border-4 border-white">
+                    閉じる
+                </button>
+            </div>
+        </div>
+
+        <!-- トラック本体 -->
+        <div id="track" class="absolute inset-0 z-10 pointer-events-none mix-blend-difference text-white">
+            <div id="scroll-content" class="w-full absolute top-0 left-0"></div>
+        </div>
+
+    </div> <!-- /#app-container -->
+
+    <!-- Firebase連携ロジック -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        let firebaseConfig = null;
+        try { if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config); } catch (e) {}
+        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'true-scroll-10m-final';
+        let db = null, currentUser = null, leaderboardData = [], isFetching = false;
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig), auth = getAuth(app);
+            db = getFirestore(app);
+            const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
+            };
+            initAuth();
+            onAuthStateChanged(auth, user => {
+                currentUser = user;
+                if (user && !isFetching) { fetchLeaderboard(); isFetching = true; }
+            });
+        }
+
+        function fetchLeaderboard() {
+            if (!currentUser || !db) return;
+            const scoresRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'scores');
+            onSnapshot(scoresRef, (snapshot) => {
+                const scores = [];
+                snapshot.forEach(doc => scores.push({ id: doc.id, ...doc.data() }));
+                scores.sort((a, b) => a.time - b.time);
+                leaderboardData = scores.slice(0, 10);
+                if(window.renderLeaderboard) window.renderLeaderboard();
+            }, (error) => { console.error(error); });
+        }
+
+        window.submitScoreToDB = async function(name, time) {
+            const scoresRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'scores');
+            await addDoc(scoresRef, { name: name || "名無し", time: time, timestamp: Date.now() });
+        };
+
+        window.renderLeaderboard = function() {
+            const container = document.getElementById('ranking-list');
+            if(!container) return;
+            if (!db) { container.innerHTML = '<div class="text-center font-bold text-white py-10">オフライン</div>'; return; }
+            if (leaderboardData.length === 0) { container.innerHTML = '<div class="text-center font-bold text-white py-10">データなし</div>'; return; }
+            container.innerHTML = '';
+            leaderboardData.forEach((data, index) => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center border-b-2 border-white py-3 px-2 bg-transparent text-white';
+                const safeName = (data.name || '名無し').replace(/[&<>'"]/g, tag => ({'&': '&amp;','<': '&lt;','>': '&gt;',"'": '&#39;','"': '&quot;'}[tag]));
+                row.innerHTML = `<div class="font-oswald italic w-10 text-center ${index < 3 ? 'text-3xl font-black' : 'text-xl font-bold'}">${index + 1}</div><div class="font-bold flex-1 px-4 truncate uppercase">${safeName}</div><div class="font-black tabular-nums text-xl">${data.time.toFixed(3)}s</div>`;
+                container.appendChild(row);
+            });
+        };
+    </script>
+
+    <script>
+        const appContainer = document.getElementById('app-container');
+        const bg10m = document.getElementById('bg-10m'); 
+
+        const DEFAULT_PX_MM = 96 / 25.4; 
+        const CARD_SHORT_SIDE_MM = 53.98; 
+        const TARGET_METERS = 10;
+        
+        let PX_MM = parseFloat(localStorage.getItem('true-scroll-px-per-mm')) || DEFAULT_PX_MM;
+        let TARGET_PX = TARGET_METERS * 1000 * PX_MM;
+
+        const TIME_CONSTANT = 600; 
+        const MAX_VELOCITY = 12;   
+        const MIN_VELOCITY = 0.5;  
+
+        let currentScroll = 0, amplitude = 0, inertiaTimestamp = 0, maxScrollLimit = Infinity;
+        let isDraggingScroll = false, lastY = 0, touchHistory = [];
+        let gameState = 'init', previousState = 'init', startTime = 0, finalTime = 0, timerFrameId = null;
+
+        const scrollContent = document.getElementById('scroll-content');
+        const startScreen = document.getElementById('start-screen'), readyScreen = document.getElementById('ready-screen'), resultScreen = document.getElementById('result-screen'), leaderboardModal = document.getElementById('leaderboard-modal'), calibrationModal = document.getElementById('calibration-modal'), hud = document.getElementById('hud');
+        const timeDisplay = document.getElementById('time-display'), distDisplay = document.getElementById('dist-display'), resultTimeEl = document.getElementById('result-time'), resultEvalEl = document.getElementById('result-eval'), countdownEl = document.getElementById('countdown'), playerNameInput = document.getElementById('player-name'), submitBtn = document.getElementById('submit-btn');
+        const trackEl = document.getElementById('track');
+
+        function showScreen(target) {
+            [startScreen, readyScreen, resultScreen, leaderboardModal, calibrationModal].forEach(el => el.classList.add('hide'));
+            if (target) target.classList.remove('hide');
+
+            if (target === startScreen) {
+                bg10m?.classList.remove('hide');
+            } else {
+                bg10m?.classList.add('hide');
+            }
+
+            // リザルトや設定、スタート画面ではトラックの線を非表示にする
+            if (target === resultScreen || target === leaderboardModal || target === calibrationModal || target === startScreen) {
+                trackEl?.classList.add('hide');
+            } else {
+                trackEl?.classList.remove('hide');
+            }
+        }
+
+        // --- キャリブレーション用ロジック ---
+        const cardBox = document.getElementById('card-box');
+        const cardHandle = document.getElementById('card-handle');
+        const cardTrack = document.getElementById('card-track');
+        const currentPxMmDisplay = document.getElementById('current-px-mm');
+        const screenHeightInput = document.getElementById('screen-height-input');
+        const applyHeightBtn = document.getElementById('apply-height-btn');
+        const pxmmInput = document.getElementById('pxmm-input');
+        const applyPxmmBtn = document.getElementById('apply-pxmm-btn');
+
+        function updateCalibrationState(newPxMm) {
+            PX_MM = newPxMm;
+            TARGET_PX = TARGET_METERS * 1000 * PX_MM;
+            localStorage.setItem('true-scroll-px-per-mm', PX_MM);
+            currentPxMmDisplay.innerText = `${PX_MM.toFixed(3)} px/mm`;
+            
+            const boxWidth = PX_MM * CARD_SHORT_SIDE_MM;
+            if(cardTrack) {
+                const maxW = cardTrack.clientWidth;
+                // 100pxを下限として潰れないように保護
+                cardBox.style.width = `${Math.max(100, Math.min(boxWidth, maxW))}px`;
+            } else {
+                cardBox.style.width = `${Math.max(100, boxWidth)}px`;
+            }
+        }
+
+        document.getElementById('open-calib-btn').addEventListener('click', () => {
+            updateCalibrationState(PX_MM); 
+            screenHeightInput.value = ''; 
+            pxmmInput.value = '';
+            showScreen(calibrationModal);
+        });
+
+        // ドラッグしてカードサイズを合わせるロジック
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        function onResizeStart(e) {
+            isResizing = true;
+            startX = e.touches ? e.touches[0].clientX : e.clientX;
+            startWidth = cardBox.offsetWidth;
+        }
+
+        function onResizeMove(e) {
+            if (!isResizing) return;
+            if (e.cancelable) e.preventDefault(); // スクロール防止
+            const currentX = e.touches ? e.touches[0].clientX : e.clientX;
+            const dx = currentX - startX;
+            // 最小100pxで潰れないように制限
+            let newWidth = Math.max(100, Math.min(startWidth + dx, cardTrack.clientWidth));
+            cardBox.style.width = `${newWidth}px`;
+            updateCalibrationState(newWidth / CARD_SHORT_SIDE_MM);
+        }
+
+        function onResizeEnd() {
+            isResizing = false;
+        }
+
+        cardHandle.addEventListener('mousedown', onResizeStart);
+        cardHandle.addEventListener('touchstart', onResizeStart, {passive: false});
+        window.addEventListener('mousemove', onResizeMove);
+        window.addEventListener('touchmove', onResizeMove, {passive: false});
+        window.addEventListener('mouseup', onResizeEnd);
+        window.addEventListener('touchend', onResizeEnd);
+
+        // 縦幅入力
+        applyHeightBtn.addEventListener('click', () => {
+            const mm = parseFloat(screenHeightInput.value);
+            if (mm && mm > 0) {
+                const tempPxMm = appContainer.clientHeight / mm;
+                updateCalibrationState(tempPxMm);
+                
+                applyHeightBtn.innerText = '適用済';
+                applyHeightBtn.classList.replace('bg-white', 'bg-black');
+                applyHeightBtn.classList.replace('text-black', 'text-white');
+                setTimeout(() => {
+                    applyHeightBtn.innerText = '適用';
+                    applyHeightBtn.classList.replace('bg-black', 'bg-white');
+                    applyHeightBtn.classList.replace('text-white', 'text-black');
+                }, 1000);
+            } else { alert('正しい数値を入力してください。'); }
+        });
+
+        // px/mm直接入力
+        applyPxmmBtn.addEventListener('click', () => {
+            const val = parseFloat(pxmmInput.value);
+            if (val && val > 0) {
+                updateCalibrationState(val);
+                
+                applyPxmmBtn.innerText = '適用済';
+                applyPxmmBtn.classList.replace('bg-white', 'bg-black');
+                applyPxmmBtn.classList.replace('text-black', 'text-white');
+                setTimeout(() => {
+                    applyPxmmBtn.innerText = '適用';
+                    applyPxmmBtn.classList.replace('bg-black', 'bg-white');
+                    applyPxmmBtn.classList.replace('text-white', 'text-black');
+                }, 1000);
+            } else { alert('正しい数値を入力してください。'); }
+        });
+
+        document.getElementById('reset-calib-btn').addEventListener('click', () => updateCalibrationState(DEFAULT_PX_MM));
+        document.getElementById('save-calib-btn').addEventListener('click', () => showScreen(startScreen));
+
+        // --- メインゲーム用ロジック ---
+        function initTrack() {
+            scrollContent.innerHTML = '';
+            const viewportH = appContainer.clientHeight;
+            
+            maxScrollLimit = TARGET_PX + (viewportH * 0.4);
+            
+            scrollContent.style.height = `${maxScrollLimit + viewportH}px`;
+            const frag = document.createDocumentFragment();
+            const offset = viewportH * 0.8;
+            
+            const sLine = document.createElement('div');
+            sLine.className = 'absolute w-full border-t-[8px] border-white top-0';
+            sLine.style.top = `${offset}px`;
+            sLine.innerHTML = `<div class="font-black text-2xl mt-2 ml-4 text-white tracking-widest">START</div>`;
+            frag.appendChild(sLine);
+
+            for (let i = 1; i <= TARGET_METERS + 2; i++) {
+                if (i === TARGET_METERS) continue;
+                const marker = document.createElement('div');
+                marker.className = 'absolute w-full flex items-center pr-4';
+                marker.style.top = `${offset + (i * 1000 * PX_MM)}px`;
+                const isT = i % 10 === 0, isF = i % 5 === 0;
+                marker.innerHTML = `<div class="${isT ? 'border-t-4 w-1/2' : isF ? 'border-t-2 w-1/3' : 'border-t w-1/4'} border-white"></div><div class="${isT ? 'text-3xl font-black text-white' : isF ? 'text-xl font-bold text-white' : 'text-sm text-white opacity-60'} ml-4">${i}m</div>`;
+                frag.appendChild(marker);
+            }
+
+            const gLine = document.createElement('div');
+            gLine.className = 'absolute w-full flex flex-col items-center';
+            gLine.style.top = `${offset + TARGET_PX}px`;
+            gLine.innerHTML = `
+                <div class="w-full border-t-[12px] border-white"></div>
+                <div class="font-oswald italic font-black text-[5rem] leading-none text-white mt-4 tracking-widest">GOAL</div>
+            `;
+            frag.appendChild(gLine);
+
+            scrollContent.appendChild(frag);
+            currentScroll = 0;
+            updateDOM();
+        }
+
+        function updateDOM() {
+            scrollContent.style.transform = `translateY(-${currentScroll}px)`;
+            const meters = currentScroll / (1000 * PX_MM);
+            distDisplay.innerText = Math.min(meters, TARGET_METERS).toFixed(2);
+            if (meters >= TARGET_METERS && gameState === 'playing') triggerFinish();
+        }
+
+        function onStart(e) {
+            if (gameState !== 'playing' && gameState !== 'finished') return;
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            
+            isDraggingScroll = true; amplitude = 0;
+            lastY = e.touches ? e.touches[0].clientY : e.clientY;
+            touchHistory = [{ y: currentScroll, t: performance.now() }];
+        }
+
+        function onMove(e) {
+            if (gameState !== 'playing' && gameState !== 'finished') return;
+            if (e.cancelable) e.preventDefault();
+            if (!isDraggingScroll) return;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY, dy = lastY - cy, now = performance.now();
+            currentScroll = Math.max(0, Math.min(maxScrollLimit, currentScroll + dy));
+            touchHistory.push({ y: currentScroll, t: now });
+            touchHistory = touchHistory.filter(h => now - h.t < 100);
+            lastY = cy; updateDOM();
+        }
+
+        function onEnd() {
+            if (!isDraggingScroll) return; isDraggingScroll = false;
+            if (touchHistory.length > 1) {
+                const oldest = touchHistory[0], newest = touchHistory[touchHistory.length-1], dt = newest.t - oldest.t;
+                if (dt > 0) {
+                    let v = (newest.y - oldest.y) / dt;
+                    v = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, v));
+                    if (Math.abs(v) > MIN_VELOCITY) {
+                        amplitude = v * TIME_CONSTANT;
+                        targetScroll = currentScroll + amplitude;
+                        inertiaTimestamp = performance.now();
+                        requestAnimationFrame(runInertia);
+                    }
+                }
+            }
+        }
+
+        function runInertia(t) {
+            if (isDraggingScroll) return;
+            const el = t - inertiaTimestamp;
+            const delta = amplitude * Math.exp(-el / TIME_CONSTANT);
+            if (Math.abs(delta) > MIN_VELOCITY) {
+                currentScroll = Math.max(0, Math.min(maxScrollLimit, targetScroll - delta));
+                updateDOM();
+                requestAnimationFrame(runInertia);
+            } else {
+                currentScroll = Math.max(0, Math.min(maxScrollLimit, targetScroll));
+                updateDOM();
+            }
+        }
+
+        appContainer.addEventListener('touchstart', onStart, {passive:false});
+        appContainer.addEventListener('touchmove', onMove, {passive:false});
+        appContainer.addEventListener('touchend', onEnd);
+        appContainer.addEventListener('mousedown', onStart);
+        appContainer.addEventListener('mousemove', onMove);
+        appContainer.addEventListener('mouseup', onEnd);
+        appContainer.addEventListener('mouseleave', onEnd);
+
+        function updateTimer() {
+            if (gameState !== 'playing') return;
+            timeDisplay.innerHTML = `${((performance.now() - startTime) / 1000).toFixed(3)}<span class="text-xl">s</span>`;
+            timerFrameId = requestAnimationFrame(updateTimer);
+        }
+
+        function evaluate(s) {
+            if (s < 4) return "LEGENDARY";
+            if (s < 6) return "PRO SCROLLER";
+            if (s < 9) return "ATHLETE";
+            return "AMATEUR";
+        }
+
+        function startGame() {
+            gameState = 'ready'; 
+            showScreen(readyScreen);
+            initTrack();
+            let c = 3; countdownEl.innerText = c;
+            const i = setInterval(() => {
+                c--;
+                if (c > 0) countdownEl.innerText = c;
+                else if (c === 0) { countdownEl.innerText = 'GO'; startRun(); }
+                else { clearInterval(i); showScreen(null); }
+            }, 1000);
+        }
+
+        function startRun() { gameState = 'playing'; hud.classList.remove('opacity-0'); startTime = performance.now(); updateTimer(); }
+
+        function triggerFinish() {
+            gameState = 'finished'; cancelAnimationFrame(timerFrameId);
+            finalTime = (performance.now() - startTime) / 1000;
+            timeDisplay.innerHTML = `${finalTime.toFixed(3)}<span class="text-xl">s</span>`;
+            resultTimeEl.innerText = finalTime.toFixed(3) + 's';
+            resultEvalEl.innerText = evaluate(finalTime);
+            playerNameInput.value = localStorage.getItem('true-scroll-name') || '';
+            setTimeout(() => { hud.classList.add('opacity-0'); showScreen(resultScreen); }, 1500);
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('retry-btn').addEventListener('click', () => { 
+            gameState = 'init'; 
+            showScreen(startScreen); 
+            distDisplay.innerText = '0.00'; 
+            timeDisplay.innerHTML = '0.000<span class="text-xl">s</span>'; 
+            currentScroll = 0; 
+            scrollContent.innerHTML = ''; 
+            updateDOM(); 
+        });
+        document.getElementById('view-ranking-btn').addEventListener('click', () => { previousState = gameState; openR(); });
+        document.getElementById('result-view-ranking-btn').addEventListener('click', () => { previousState = gameState; openR(); });
+        document.getElementById('close-ranking-btn').addEventListener('click', () => { gameState = previousState; showScreen(gameState === 'finished' ? resultScreen : startScreen); });
+
+        function openR() { gameState = 'ranking'; if(window.renderLeaderboard) window.renderLeaderboard(); showScreen(leaderboardModal); }
+
+        submitBtn.addEventListener('click', async () => {
+            if (submitBtn.disabled) return;
+            const n = playerNameInput.value.trim().toUpperCase() || '名無し';
+            localStorage.setItem('true-scroll-name', n);
+            submitBtn.innerText = '送信中...'; submitBtn.disabled = true;
+            try { await window.submitScoreToDB(n, finalTime); submitBtn.innerText = '送信成功！'; setTimeout(openR, 800); }
+            catch (e) { submitBtn.innerText = 'エラー'; setTimeout(() => { submitBtn.disabled = false; submitBtn.innerText = '記録を送信'; }, 2000); }
+        });
+
+        // 起動時
+        showScreen(startScreen);
+    </script>
+</body>
+</html>
