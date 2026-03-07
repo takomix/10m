@@ -77,7 +77,8 @@
             color: #ffffff; 
             display: inline-block;
             animation: pulseAnim 2.8s ease-in-out infinite;
-            transform: scale(0);
+            transform: scale(0) translateZ(0); /* ハードウェアアクセラレーションを有効化 */
+            will-change: transform, opacity; /* 軽量化：ブラウザにアニメーションを事前通知 */
             opacity: 0;
         }
 
@@ -313,9 +314,17 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let firebaseConfig = null;
-        try { if (typeof __firebase_config !== 'undefined') firebaseConfig = JSON.parse(__firebase_config); } catch (e) {}
-        const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'true-scroll-10m-final';
+        // ここをご自身のFirebase設定に書き換えました！
+        const firebaseConfig = {
+            apiKey: "AIzaSyD3azpvYB6FTy89BXjDIWQildMFhtxWd-c",
+            authDomain: "m-78121.firebaseapp.com",
+            projectId: "m-78121",
+            storageBucket: "m-78121.firebasestorage.app",
+            messagingSenderId: "865499402406",
+            appId: "1:865499402406:web:32258121141c358715a467",
+            measurementId: "G-N84E7L1N7T"
+        };
+        const APP_ID = 'true-scroll-10m-final';
         let db = null, currentUser = null, leaderboardData = [], isFetching = false;
 
         if (firebaseConfig) {
@@ -397,6 +406,8 @@
         let isDraggingScroll = false, lastY = 0, touchHistory = [];
         let gameState = 'init', previousState = 'init', startTime = 0, finalTime = 0, timerFrameId = null;
         let countdownInterval = null, inertiaFrameId = null; 
+        let isFirstPlay = true; // 初回プレイを判定するフラグ
+        let isBgGenerated = false; // 背景が生成済みか判定
 
         const scrollContent = document.getElementById('scroll-content');
         const startScreen = document.getElementById('start-screen'), readyScreen = document.getElementById('ready-screen'), resultScreen = document.getElementById('result-screen'), leaderboardModal = document.getElementById('leaderboard-modal'), calibrationModal = document.getElementById('calibration-modal'), hud = document.getElementById('hud');
@@ -406,6 +417,8 @@
 
         // --- 背景アニメーションの生成ロジック ---
         function setupAnimatedBackground() {
+            if (isFirstPlay) return; // 1周目は生成処理をスキップ（起動時の超軽量化）
+
             gridBg.innerHTML = '';
             const textContent = "スワイプをくりかえす";
             const rows = textContent.length;
@@ -415,7 +428,7 @@
             const columnWidthPx = columnWidthRatio * (window.innerHeight / 100);
             let cols = Math.ceil(window.innerWidth / columnWidthPx);
             if (cols % 2 !== 0) cols++;
-            cols += 4; // 端が切れないよう余裕を持たせる
+            cols += 2; // 余分なDOM生成を減らして軽量化
             
             gridBg.style.setProperty('--cols', cols);
 
@@ -430,6 +443,7 @@
                     gridBg.appendChild(span);
                 }
             }
+            isBgGenerated = true;
         }
 
         function showScreen(target) {
@@ -438,10 +452,17 @@
 
             if (target === startScreen) {
                 title10m?.classList.remove('hide');
-                if (bgArea) bgArea.style.zIndex = '100'; // スタート画面では前に出す
             } else {
                 title10m?.classList.add('hide');
-                if (bgArea) bgArea.style.zIndex = '0'; // 他の画面では後ろに回す
+            }
+
+            // 2周目以降（isFirstPlay === false）のみアニメーション背景を表示
+            if (!isFirstPlay && bgArea) {
+                if (!isBgGenerated) setupAnimatedBackground(); // 必要になった瞬間にDOMを生成
+                bgArea.classList.remove('hide');
+                bgArea.style.zIndex = (target === startScreen) ? '100' : '0';
+            } else if (bgArea) {
+                bgArea.classList.add('hide');
             }
 
             if (target === readyScreen || target === null) {
@@ -715,6 +736,8 @@
 
         function triggerFinish() {
             gameState = 'finished'; 
+            isFirstPlay = false; // ゴールしたら1周目終了のフラグを立てる
+            
             if (timerFrameId) cancelAnimationFrame(timerFrameId);
             if (inertiaFrameId) { cancelAnimationFrame(inertiaFrameId); inertiaFrameId = null; } // バグ2対策
             abortContainer.classList.add('opacity-0', 'pointer-events-none');
@@ -796,7 +819,7 @@
 
         // 起動時およびリサイズ時に背景を再構成
         window.addEventListener('load', () => {
-            setupAnimatedBackground();
+            // 初回は背景を作らないため setupAnimatedBackground() の呼び出しを削除
             showScreen(startScreen);
         });
 
