@@ -325,31 +325,39 @@
             measurementId: "G-N84E7L1N7T"
         };
         const APP_ID = 'true-scroll-10m-final';
-        let db = null, currentUser = null, leaderboardData = [], isFetching = false;
+        let db = null, leaderboardData = [];
 
         if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig), auth = getAuth(app);
+            const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
+            
+            // 【修正ポイント1】ログインの完了を待たずに、即座にランキングを取得開始！
+            fetchLeaderboard();
+
+            const auth = getAuth(app);
             const initAuth = async () => {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
-                else await signInAnonymously(auth);
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                    else await signInAnonymously(auth);
+                } catch (e) {
+                    console.warn("匿名ログインが無効です。テストモードの設定で動作させます。", e);
+                }
             };
             initAuth();
-            onAuthStateChanged(auth, user => {
-                currentUser = user;
-                if (user && !isFetching) { fetchLeaderboard(); isFetching = true; }
-            });
         }
 
         function fetchLeaderboard() {
-            if (!currentUser || !db) return;
+            if (!db) return;
             const scoresRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'scores');
+            
+            // 【修正ポイント2】取得エラーが起きた場合は、画面に赤文字で理由を表示
             onSnapshot(scoresRef, (snapshot) => {
                 const scores = [];
                 snapshot.forEach(doc => scores.push({ id: doc.id, ...doc.data() }));
                 
                 const bestScoresMap = new Map();
                 scores.forEach(s => {
+                    if (s.time === undefined) return;
                     const nameKey = (s.name || "名無し").trim().toUpperCase();
                     if (!bestScoresMap.has(nameKey) || bestScoresMap.get(nameKey).time > s.time) {
                         bestScoresMap.set(nameKey, s);
@@ -361,12 +369,24 @@
                 leaderboardData = uniqueScores.slice(0, 10);
                 
                 if(window.renderLeaderboard) window.renderLeaderboard();
-            }, (error) => { console.error(error); });
+            }, (error) => { 
+                console.error("ランキング取得エラー:", error); 
+                const container = document.getElementById('ranking-list');
+                if(container) {
+                    container.innerHTML = '<div class="text-center font-bold text-red-500 py-10">取得エラー<br><span class="text-xs text-white">Firebaseの権限(Rules)を確認してください</span></div>';
+                }
+            });
         }
 
         window.submitScoreToDB = async function(name, time) {
+            if (!db) throw new Error("データベースがありません");
             const scoresRef = collection(db, 'artifacts', APP_ID, 'public', 'data', 'scores');
-            await addDoc(scoresRef, { name: name || "名無し", time: time, timestamp: Date.now() });
+            // 送信が止まる現象を防ぐため、5秒のタイムアウトを設定
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("通信タイムアウト")), 5000));
+            await Promise.race([
+                addDoc(scoresRef, { name: name || "名無し", time: time, timestamp: Date.now() }),
+                timeout
+            ]);
         };
 
         window.renderLeaderboard = function() {
@@ -813,8 +833,16 @@
             const n = playerNameInput.value.trim().toUpperCase() || '名無し';
             localStorage.setItem('true-scroll-name', n);
             submitBtn.innerText = '送信中...'; submitBtn.disabled = true;
-            try { await window.submitScoreToDB(n, finalTime); submitBtn.innerText = '送信成功！'; setTimeout(openR, 800); }
-            catch (e) { submitBtn.innerText = 'エラー'; setTimeout(() => { submitBtn.disabled = false; submitBtn.innerText = '記録を送信'; }, 2000); }
+            try { 
+                await window.submitScoreToDB(n, finalTime); 
+                submitBtn.innerText = '送信成功！'; 
+                setTimeout(openR, 800); 
+            }
+            catch (e) { 
+                console.error("送信エラー詳細:", e);
+                submitBtn.innerText = '通信エラー'; 
+                setTimeout(() => { submitBtn.disabled = false; submitBtn.innerText = '記録を送信'; }, 2000); 
+            }
         });
 
         // 起動時およびリサイズ時に背景を再構成
