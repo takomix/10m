@@ -55,7 +55,7 @@
         #bg-10m {
             position: fixed;
             inset: 0;
-            z-index: 100; /* UIより手前に配置 */
+            z-index: 100; /* デフォルト */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -74,9 +74,6 @@
         .char {
             font-size: 4.2vh;
             font-weight: bold;
-            /* 文字自体は白。
-               背景(白)と重なる -> |白-白| = 黒に見える
-               UI(黒)と重なる -> |白-黒| = 白に見える（反転） */
             color: #ffffff; 
             display: inline-block;
             animation: pulseAnim 2.8s ease-in-out infinite;
@@ -93,13 +90,22 @@
 </head>
 <body class="w-screen h-screen flex justify-center items-center">
 
-    <!-- アニメーション文字エリア (最前面・全画面) -->
-    <div id="bg-10m" class="hide">
+    <!-- アニメーション文字エリア (CSSグリッド版) -->
+    <div id="bg-10m">
         <div id="grid-bg" class="grid-container"></div>
     </div>
 
-    <!-- UIコンテナ (元のデザインを完全維持) -->
-    <div id="app-container" class="relative w-full h-[100dvh] sm:h-screen sm:max-w-md bg-white overflow-hidden shadow-2xl text-black">
+    <!-- 10m タイトル (最前面・固定・直接SVG埋め込みでSafari対応) -->
+    <div id="title-10m-container" class="fixed inset-0 pointer-events-none mix-blend-difference z-[110] hide">
+        <svg class="absolute top-[35%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[160vw] sm:w-[716px] max-w-none h-auto" viewBox="0 0 4167 5834" version="1.1" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-miterlimit:2;">
+            <g transform="matrix(0.623985,-0.054592,-0.198498,1.021186,-328.075344,68.904256)">
+                <text x="2242.005px" y="4047.26px" style="font-family:'ZenKakuGothicNew-Black', 'Zen Kaku Gothic New';font-weight:900;font-size:3009.392px;fill:#fff;stroke:#fff;stroke-width:89.27px;">10m</text>
+            </g>
+        </svg>
+    </div>
+
+    <!-- UIコンテナ -->
+    <div id="app-container" class="relative z-10 w-full h-[100dvh] sm:h-screen sm:max-w-md bg-white overflow-hidden shadow-2xl text-black">
 
         <!-- 横向き警告 -->
         <div id="landscape-warning" class="absolute inset-0 bg-white z-[100] flex-col items-center justify-center hide portrait:hide sm:!hidden border-8 border-black">
@@ -126,16 +132,12 @@
             </button>
         </div>
 
-        <!-- スタート画面 -->
-        <div id="start-screen" class="absolute inset-0 z-50 border-8 border-white box-border overflow-hidden mix-blend-difference text-white hide">
+        <!-- スタート画面 (スクロール可能に修正) -->
+        <div id="start-screen" class="absolute inset-0 z-50 border-8 border-white box-border scrollable-screen mix-blend-difference text-white hide">
 
-<img 
-    src="10m.svg" 
-    alt="10m" 
-    class="fixed top-[35%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[40%] max-w-none pointer-events-none z-[110] mix-blend-difference" 
->
+            <!-- タイトル画像は外部に配置済み -->
 
-            <div class="min-h-full flex flex-col items-center justify-center py-12 px-4 relative">
+            <div class="min-h-full flex flex-col items-center justify-center py-12 pb-20 px-4 relative">
                 
                 <div class="text-sm font-bold mb-10 text-center px-4 leading-relaxed border-t-2 border-b-2 border-white py-4 w-full max-w-xs bg-transparent mt-[40vh]">
                     正確な10mの物理距離を計測。<br>
@@ -143,19 +145,19 @@
                     スワイプの「質」がタイムを分ける。
                 </div>
 
-                <button id="start-btn" class="bg-white text-black text-3xl font-black py-4 w-full max-w-xs active:scale-95 transition-transform mb-4 border-4 border-white">
+                <button id="start-btn" class="bg-white text-black text-3xl font-black py-4 w-full max-w-xs active:scale-95 transition-transform mb-4 border-4 border-white z-10 relative">
                     スタート
                 </button>
-                <button id="open-calib-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors mb-4 flex items-center justify-center tracking-widest gap-2">
+                <button id="open-calib-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors mb-4 flex items-center justify-center tracking-widest gap-2 z-10 relative">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     画面サイズ調整
                 </button>
-                <button id="view-ranking-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors tracking-widest">
+                <button id="view-ranking-btn" class="bg-transparent text-white border-4 border-white text-sm font-bold py-3 w-full max-w-xs active:bg-white active:text-black transition-colors tracking-widest z-10 relative">
                     ランキング
                 </button>
 
                 <!-- クレジット表記 -->
-                <div class="mt-8 text-white text-[10px] font-bold tracking-widest flex items-center justify-center gap-1">
+                <div class="mt-8 text-white text-[10px] font-bold tracking-widest flex items-center justify-center gap-1 z-10 relative">
                     Created by たこみざわ with 
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M16.19 2H7.81C4.17 2 2 4.17 2 7.81V16.18C2 19.83 4.17 22 7.81 22H16.18C19.82 22 21.99 19.83 21.99 16.19V7.81C22 4.17 19.83 2 16.19 2ZM15.36 11.47L13.11 12.51C12.79 12.66 12.53 12.92 12.38 13.24L11.34 15.49C11.12 15.96 10.45 15.96 10.23 15.49L9.19 13.24C9.04 12.92 8.78 12.66 8.46 12.51L6.21 11.47C5.74 11.25 5.74 10.58 6.21 10.36L8.46 9.32C8.78 9.17 9.04 8.91 9.19 8.59L10.23 6.34C10.45 5.87 11.12 5.87 11.34 6.34L12.38 8.59C12.53 8.91 12.79 9.17 13.11 9.32L15.36 10.36C15.83 10.58 15.83 11.25 15.36 11.47ZM17.47 17.65L16.48 18.11C16.34 18.17 16.22 18.29 16.15 18.43L15.69 19.42C15.58 19.65 15.26 19.65 15.15 19.42L14.69 18.43C14.62 18.29 14.5 18.17 14.36 18.11L13.37 17.65C13.14 17.54 13.14 17.22 13.37 17.11L14.36 16.65C14.5 16.59 14.62 16.47 14.69 16.33L15.15 15.34C15.26 15.11 15.58 15.11 15.69 15.34L16.15 16.33C16.22 16.47 16.34 16.59 16.48 16.65L17.47 17.11C17.7 17.22 17.7 17.54 17.47 17.65Z" fill="currentColor"/>
@@ -167,7 +169,7 @@
 
         <!-- キャリブレーション画面 -->
         <div id="calibration-modal" class="absolute inset-0 z-[80] border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
-            <div class="min-h-full flex flex-col items-center justify-start py-12 px-0 w-full">
+            <div class="min-h-full flex flex-col items-center justify-start py-12 pb-24 px-0 w-full">
                 
                 <div class="px-4 w-full flex flex-col items-center mb-4">
                     <h2 class="text-3xl font-black mb-2 tracking-widest text-center border-b-4 border-white pb-2 inline-block">画面サイズ調整</h2>
@@ -222,7 +224,8 @@
                 <!-- 現在の設定値 -->
                 <div class="text-center mb-8 pb-2 w-full max-w-sm mx-auto px-4">
                     <div class="text-xs font-bold text-white mb-1">現在の設定 (1mmあたりのピクセル数)</div>
-                    <div id="current-px-mm" class="text-2xl font-black tabular-nums">0.000 px/mm</div>
+                    <div id="current-px-mm" class="text-2xl font-black tabular-nums transition-colors">0.000 px/mm</div>
+                    <div id="ranking-warning" class="text-red-500 font-bold text-xs mt-2 hide">※3px/mm以下はランキングに登録できません</div>
                 </div>
 
                 <div class="flex flex-col gap-3 w-full max-w-sm mx-auto box-border px-4">
@@ -246,7 +249,7 @@
 
         <!-- リザルト画面 -->
         <div id="result-screen" class="absolute inset-0 z-50 border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
-            <div class="min-h-full flex flex-col items-center justify-center py-12 px-4 relative">
+            <div class="min-h-full flex flex-col items-center justify-center py-12 pb-20 px-4 relative">
                 <h2 class="text-6xl font-oswald font-black italic mb-8 tracking-widest text-white border-b-8 border-white uppercase">RESULT</h2>
                 
                 <div class="border-4 border-white p-6 mb-8 w-full max-w-sm text-center bg-transparent box-border relative">
@@ -283,7 +286,7 @@
 
         <!-- リーダーボードモーダル -->
         <div id="leaderboard-modal" class="absolute inset-0 z-[70] border-8 border-white box-border scrollable-screen hide mix-blend-difference text-white bg-black">
-            <div class="min-h-full flex flex-col items-center justify-start py-12 px-4">
+            <div class="min-h-full flex flex-col items-center justify-start py-12 pb-24 px-4">
                 <h2 class="text-6xl font-oswald font-black italic mb-8 tracking-widest text-white border-b-8 border-white uppercase">RANKING</h2>
                 <p class="text-sm font-bold text-white mb-6 uppercase border-b-2 border-white pb-1">トップ10 スクロール記録</p>
                 
@@ -376,6 +379,7 @@
     <script>
         const appContainer = document.getElementById('app-container');
         const bgArea = document.getElementById('bg-10m'); 
+        const title10m = document.getElementById('title-10m-container');
         const gridBg = document.getElementById('grid-bg');
 
         const DEFAULT_PX_MM = 96 / 25.4; 
@@ -392,7 +396,7 @@
         let currentScroll = 0, amplitude = 0, inertiaTimestamp = 0, maxScrollLimit = Infinity, targetScroll = 0;
         let isDraggingScroll = false, lastY = 0, touchHistory = [];
         let gameState = 'init', previousState = 'init', startTime = 0, finalTime = 0, timerFrameId = null;
-        let countdownInterval = null; 
+        let countdownInterval = null, inertiaFrameId = null; 
 
         const scrollContent = document.getElementById('scroll-content');
         const startScreen = document.getElementById('start-screen'), readyScreen = document.getElementById('ready-screen'), resultScreen = document.getElementById('result-screen'), leaderboardModal = document.getElementById('leaderboard-modal'), calibrationModal = document.getElementById('calibration-modal'), hud = document.getElementById('hud');
@@ -433,9 +437,11 @@
             if (target) target.classList.remove('hide');
 
             if (target === startScreen) {
-                bgArea?.classList.remove('hide');
+                title10m?.classList.remove('hide');
+                if (bgArea) bgArea.style.zIndex = '100'; // スタート画面では前に出す
             } else {
-                bgArea?.classList.add('hide');
+                title10m?.classList.add('hide');
+                if (bgArea) bgArea.style.zIndex = '0'; // 他の画面では後ろに回す
             }
 
             if (target === readyScreen || target === null) {
@@ -456,10 +462,22 @@
         const applyPxmmBtn = document.getElementById('apply-pxmm-btn');
 
         function updateCalibrationState(newPxMm) {
-            PX_MM = newPxMm;
+            PX_MM = Math.max(0.1, newPxMm); // バグ3対策: 極小値をガード
             TARGET_PX = TARGET_METERS * 1000 * PX_MM;
             localStorage.setItem('true-scroll-px-per-mm', PX_MM);
             currentPxMmDisplay.innerText = `${PX_MM.toFixed(3)} px/mm`;
+            
+            const warningEl = document.getElementById('ranking-warning');
+            if (warningEl) {
+                if (PX_MM <= 3.0) {
+                    warningEl.innerHTML = `※3px/mm以下はランキングに登録できません。<br><span class="text-[10px] text-white/80 font-normal leading-tight mt-1 inline-block">（ご使用の端末に対応しきれず、申し訳ございません...！）</span>`;
+                    warningEl.classList.remove('hide');
+                    currentPxMmDisplay.classList.add('text-red-500');
+                } else {
+                    warningEl.classList.add('hide');
+                    currentPxMmDisplay.classList.remove('text-red-500');
+                }
+            }
             
             const boxWidth = PX_MM * CARD_SHORT_SIDE_MM;
             if(cardTrack) {
@@ -512,7 +530,7 @@
             const mm = parseFloat(screenHeightInput.value);
             if (mm && mm > 0) {
                 const tempPxMm = appContainer.clientHeight / mm;
-                updateCalibrationState(tempPxMm);
+                updateCalibrationState(Math.max(0.1, tempPxMm));
                 applyHeightBtn.innerText = '適用済';
                 applyHeightBtn.classList.replace('bg-white', 'bg-black');
                 applyHeightBtn.classList.replace('text-black', 'text-white');
@@ -527,7 +545,7 @@
         applyPxmmBtn.addEventListener('click', () => {
             const val = parseFloat(pxmmInput.value);
             if (val && val > 0) {
-                updateCalibrationState(val);
+                updateCalibrationState(Math.max(0.1, val));
                 applyPxmmBtn.innerText = '適用済';
                 applyPxmmBtn.classList.replace('bg-white', 'bg-black');
                 applyPxmmBtn.classList.replace('text-black', 'text-white');
@@ -618,23 +636,26 @@
                         amplitude = v * TIME_CONSTANT;
                         targetScroll = currentScroll + amplitude;
                         inertiaTimestamp = performance.now();
-                        requestAnimationFrame(runInertia);
+                        if (inertiaFrameId) cancelAnimationFrame(inertiaFrameId);
+                        inertiaFrameId = requestAnimationFrame(runInertia);
                     }
                 }
             }
         }
 
-        function runInertia(t) {
+        function runInertia() {
             if (isDraggingScroll) return;
-            const el = t - inertiaTimestamp;
+            const now = performance.now();
+            const el = Math.max(0, now - inertiaTimestamp); // バグ1対策: 時間の逆行を防ぐ
             const delta = amplitude * Math.exp(-el / TIME_CONSTANT);
             if (Math.abs(delta) > MIN_VELOCITY) {
                 currentScroll = Math.max(0, Math.min(maxScrollLimit, targetScroll - delta));
                 updateDOM();
-                requestAnimationFrame(runInertia);
+                inertiaFrameId = requestAnimationFrame(runInertia);
             } else {
                 currentScroll = Math.max(0, Math.min(maxScrollLimit, targetScroll));
                 updateDOM();
+                inertiaFrameId = null;
             }
         }
 
@@ -694,16 +715,32 @@
 
         function triggerFinish() {
             gameState = 'finished'; 
-            cancelAnimationFrame(timerFrameId);
+            if (timerFrameId) cancelAnimationFrame(timerFrameId);
+            if (inertiaFrameId) { cancelAnimationFrame(inertiaFrameId); inertiaFrameId = null; } // バグ2対策
             abortContainer.classList.add('opacity-0', 'pointer-events-none');
             const elapsed = performance.now() - startTime;
             finalTime = elapsed / 1000;
             timeDisplay.innerHTML = `${finalTime.toFixed(3)}<span class="text-xl">s</span>`;
             resultTimeEl.innerText = finalTime.toFixed(3) + 's';
             resultEvalEl.innerText = evaluate(finalTime);
-            playerNameInput.value = localStorage.getItem('true-scroll-name') || '';
-            submitBtn.disabled = false;
-            submitBtn.innerText = '記録を送信';
+            
+            // ランキング対象外のUI切り替え
+            if (PX_MM <= 3.0) {
+                playerNameInput.value = '対象外設定';
+                playerNameInput.disabled = true;
+                submitBtn.disabled = true;
+                submitBtn.innerText = 'ランキング対象外';
+                submitBtn.classList.replace('bg-white', 'bg-gray-500');
+                submitBtn.classList.replace('text-black', 'text-white');
+            } else {
+                playerNameInput.value = localStorage.getItem('true-scroll-name') || '';
+                playerNameInput.disabled = false;
+                submitBtn.disabled = false;
+                submitBtn.innerText = '記録を送信';
+                submitBtn.classList.replace('bg-gray-500', 'bg-white');
+                submitBtn.classList.replace('text-white', 'text-black');
+            }
+            
             setTimeout(() => { hud.classList.add('opacity-0'); showScreen(resultScreen); }, 1500);
         }
 
@@ -712,6 +749,7 @@
             gameState = 'init';
             if (timerFrameId) cancelAnimationFrame(timerFrameId);
             if (countdownInterval) clearInterval(countdownInterval);
+            if (inertiaFrameId) { cancelAnimationFrame(inertiaFrameId); inertiaFrameId = null; } // バグ2対策
             hud.classList.add('opacity-0');
             abortContainer.classList.add('opacity-0', 'pointer-events-none');
             const counts = document.querySelectorAll('.count-el');
@@ -735,8 +773,10 @@
             currentScroll = 0; 
             scrollContent.innerHTML = ''; 
             updateDOM(); 
-            submitBtn.disabled = false;
-            submitBtn.innerText = '記録を送信';
+            if (PX_MM > 3.0) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = '記録を送信';
+            }
         });
         
         document.getElementById('view-ranking-btn').addEventListener('click', () => { previousState = gameState; openR(); });
@@ -761,9 +801,21 @@
         });
 
         let resizeTimer = null;
+        let lastWinWidth = window.innerWidth;
+        let lastWinHeight = window.innerHeight;
+
         window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(setupAnimatedBackground, 200);
+            const currentWidth = window.innerWidth;
+            const currentHeight = window.innerHeight;
+            
+            if (Math.abs(currentWidth - lastWinWidth) > 50 || Math.abs(currentHeight - lastWinHeight) > 50) {
+                lastWinWidth = currentWidth;
+                lastWinHeight = currentHeight;
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    setupAnimatedBackground();
+                }, 200);
+            }
         });
 
     </script>
